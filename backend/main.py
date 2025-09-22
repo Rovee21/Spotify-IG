@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from dotenv import load_dotenv
 import requests, os
+import sqlite3
 from fastapi.responses import RedirectResponse, JSONResponse
 from pathlib import Path
 
@@ -16,6 +17,33 @@ REDIRECT_URI = "https://a36c349afd92.ngrok-free.app/callback"
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
 SPOTIFY_TOKEN_URL = "https://accounts.spotify.com/api/token"
 SPOTIFY_ME_URL = "https://api.spotify.com/v1/me"
+
+#Connecting to the DB
+def init_db():
+    conn = sqlite3.connect("spotify_app.db")
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            spotify_id TEXT UNIQUE,
+            name TEXT
+            )""")
+
+    cursor.execute(
+        """CREATE TABLE IF NOT EXISTS listening_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            track_name TEXT,
+            artist_name TEXT,
+            album_name TEXT,
+            played_at TEXT,
+            FOREIGN KEY (user_id) REFERENCES users(id)
+            )""")
+    conn.commit()
+    conn.close()
+
+init_db()
 
 @app.get("/login")
 def login():
@@ -49,10 +77,20 @@ def callback(code: str):
     if "images" in user_profile and len(user_profile["images"]) > 0:
         image_url = user_profile["images"][0]["url"]
 
+    #Saving user info into DB
+    conn = sqlite3.connect("spotify_app.db")
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT OR IGNORE INTO users (spotify_id, name) VALUES (?, ?)""", 
+        (user_profile["id"], user_profile.get("display_name", "")))
+    conn.commit()
+    conn.close()
+
     # Redirect back to frontend with user info in query params
     frontend_url = (
         f"http://localhost:5173/profile"
         f"?name={user_profile.get('display_name', '')}"
         f"&image={image_url}"
+        f"&access_token={access_token}"
     )
     return RedirectResponse(frontend_url)
