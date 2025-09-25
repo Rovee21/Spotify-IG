@@ -3,15 +3,24 @@ from dotenv import load_dotenv
 import requests, os
 import sqlite3
 from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pathlib import Path
 
 load_dotenv()
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = "https://a36c349afd92.ngrok-free.app/callback"
+REDIRECT_URI = "https://b6ac25e5aa1b.ngrok-free.app/callback"
 
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
@@ -92,5 +101,59 @@ def callback(code: str):
         f"?name={user_profile.get('display_name', '')}"
         f"&image={image_url}"
         f"&access_token={access_token}"
+        f"&spotify_id={user_profile['id']}"
     )
     return RedirectResponse(frontend_url)
+
+
+SPOTIFY_RECENT_URL = "https://api.spotify.com/v1/me/player/recently-played?limit=20"
+
+@app.get("/history")
+def get_history(spotify_id: str, access_token:str):
+    headers = {"Authorization": f"Bearer {access_token}"}
+    response = requests.get(SPOTIFY_RECENT_URL, headers=headers)
+    data = response.json()
+
+    conn = sqlite3.connect("spotify_app.db")
+    cursor = conn.cursor()
+
+    # Get user_id
+    cursor.execute("SELECT id FROM users WHERE spotify_id = ?", (spotify_id,))
+    user_row = cursor.fetchone()
+    if not user_row:
+        return {"error": "User not found"}
+    user_id = user_row[0]
+
+
+    # Save tracks
+    for item in data.get("items", []):
+        track = item["track"]
+        played_at = item["played_at"]
+        cursor.execute("""
+            INSERT INTO listening_history (user_id, track_name, artist_name, album_name, played_at)
+            VALUES (?, ?, ?, ?, ?)
+        """, (
+            user_id,
+            track["name"],
+            ", ".join([a["name"] for a in track["artists"]]),
+            track["album"]["name"],
+            played_at,
+        ))
+
+    conn.commit()
+
+    # Fetch from DB to return
+    cursor.execute("""
+        SELECT track_name, artist_name, album_name, played_at
+        FROM listening_history
+        WHERE user_id = ?
+        ORDER BY played_at DESC LIMIT 20
+    """, (user_id,))
+    history = cursor.fetchall()
+
+    conn.close()
+
+    return [
+        {"track_name": h[0], "artist_name": h[1], "album_name": h[2], "played_at": h[3]}
+        for h in history
+    ]
