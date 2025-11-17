@@ -20,7 +20,7 @@ app.add_middleware(
 
 CLIENT_ID = os.getenv("CLIENT_ID")
 CLIENT_SECRET = os.getenv("CLIENT_SECRET")
-REDIRECT_URI = "https://b6ac25e5aa1b.ngrok-free.app/callback"
+REDIRECT_URI = "https://fafe085739d6.ngrok-free.app/callback"
 
 
 SPOTIFY_AUTH_URL = "https://accounts.spotify.com/authorize"
