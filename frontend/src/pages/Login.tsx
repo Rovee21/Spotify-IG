@@ -8,18 +8,17 @@ function Login(){
 
       return (
         <div className="flex flex-col h-screen bg-black text-white">
-          {/* Top-left title */}
+          {/* */}
           <div className="p-6">
             <h1 className="text-3xl font-extrabold tracking-wide">Resonate</h1>
           </div>
-    
-          {/* Center description */}
           <div className="flex-grow flex items-center justify-center">
             <p className="text-center text-2xl max-w-xl font-light opacity-90">
               Wanna have a social media platform to talk about music with your friends?  
               <span className="block mt-2 font-semibold">Look no further.</span>
             </p>
           </div>
+          
     
           {/* Bottom login button */}
           <div className="flex items-center justify-center mb-12 space-x-4">
